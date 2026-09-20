@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GACFOOD — Portal do Contador</title>
+<style>
+  :root { --bg:#0f1420; --card:#1c2333; --borda:#333c50; --txt:#e6e9f0; --mut:#8892a6; --acc:#e94560; --ok:#7dff9e; --warn:#ffd479; --err:#ff8a8a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--txt); }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 20px; border-bottom:1px solid var(--borda); }
+  header h1 { font-size:1.05rem; margin:0; }
+  main { max-width:1200px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border-radius:8px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:.8rem; color:var(--mut); margin-top:10px; }
+  input, select, button { width:100%; padding:10px; border-radius:6px; border:1px solid var(--borda); background:#141a29; color:var(--txt); font-size:.95rem; margin-top:4px; }
+  button { background:var(--acc); border:none; cursor:pointer; color:#fff; }
+  button.sec { background:var(--borda); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .login { max-width:400px; margin:40px auto; }
+  .linha { display:flex; gap:12px; flex-wrap:wrap; }
+  .linha > div { flex:1 1 180px; }
+  .status-box { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:6px; }
+  .status-box label { display:flex; align-items:center; gap:6px; margin:0; color:var(--txt); font-size:.85rem; }
+  .status-box input { width:auto; margin:0; }
+  .msg { font-size:.85rem; margin-top:10px; }
+  .msg.erro { color:var(--err); } .msg.ok { color:var(--ok); } .msg.aviso { color:var(--warn); }
+  .acoes { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .acoes button { width:auto; padding:10px 16px; }
+  .tabela-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--borda); white-space:nowrap; }
+  td.num, th.num { text-align:right; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:.72rem; }
+  .b-AUTORIZADA { background:#123a1e; color:var(--ok); }
+  .b-CANCELADA { background:var(--borda); color:#a8b3c7; }
+  .b-REJEITADA, .b-ERRO, .b-DENEGADA { background:#4a1212; color:var(--err); }
+  .b-PENDENTE, .b-CONTINGENCIA, .b-ENVIADA, .b-INUTILIZADA { background:#4a3b12; color:var(--warn); }
+  .resumo td.destaque { font-weight:700; }
+  .mut { color:var(--mut); font-size:.8rem; }
+  .oculto { display:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>GACFOOD · Portal do Contador</h1>
+  <div id="topo-usuario" class="oculto">
+    <span id="topo-email" class="mut"></span>
+    <button id="btn-sair" class="sec" style="width:auto;padding:6px 12px;margin-left:8px;">Sair</button>
+  </div>
+</header>
+
+<main>
+  <!-- ─── LOGIN ─── -->
+  <section id="tela-login" class="card login">
+    <h2 id="login-titulo" style="margin-top:0;">Entrar</h2>
+    <label>E-mail</label>
+    <input type="email" id="login-email" autocomplete="username">
+    <label>Senha</label>
+    <input type="password" id="login-senha" autocomplete="current-password">
+    <button id="btn-entrar" style="margin-top:14px;">Entrar</button>
+    <div class="acoes" style="justify-content:space-between;">
+      <a href="#" id="link-alternar" class="mut">Primeiro acesso? Criar senha</a>
+      <a href="#" id="link-esqueci" class="mut">Esqueci a senha</a>
+    </div>
+    <div id="login-msg" class="msg oculto"></div>
+    <p class="mut">Use o mesmo e-mail que o restaurante cadastrou para você no GACFOOD.</p>
+  </section>
+
+  <!-- ─── PAINEL ─── -->
+  <section id="tela-painel" class="oculto">
+    <div class="card">
+      <div class="linha">
+        <div>
+          <label>Restaurante</label>
+          <select id="f-restaurante"></select>
+        </div>
+        <div>
+          <label>Data inicial</label>
+          <input type="date" id="f-inicio">
+        </div>
+        <div>
+          <label>Data final</label>
+          <input type="date" id="f-fim">
+        </div>
+        <div>
+          <label>Ambiente</label>
+          <select id="f-ambiente">
+            <option value="PRODUCAO">Produção</option>
+            <option value="HOMOLOGACAO">Homologação (testes)</option>
+            <option value="">Todos</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Situação da nota</label>
+      <div class="status-box" id="f-status"></div>
+
+      <div class="acoes">
+        <button id="btn-buscar">Buscar notas</button>
+        <button id="btn-xlsx" class="sec" disabled>Exportar planilha (.xlsx)</button>
+        <button id="btn-zip" class="sec" disabled>Baixar XMLs (.zip)</button>
+      </div>
+      <div id="painel-msg" class="msg oculto"></div>
+    </div>
+
+    <div class="card" id="card-resumo">
+      <h3 style="margin-top:0;">Somatório do período</h3>
+      <div class="tabela-wrap">
+        <table class="resumo">
+          <thead><tr><th>Situação</th><th class="num">Notas</th><th class="num">Valor (R$)</th></tr></thead>
+          <tbody id="resumo-corpo"><tr><td colspan="3" class="mut">Faça uma busca.</td></tr></tbody>
+        </table>
+      </div>
+      <p class="mut" id="resumo-nota"></p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Notas fiscais <span id="lista-contagem" class="mut"></span></h3>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Emissão</th><th>Nº</th><th>Série</th><th>Mod.</th><th>Situação</th>
+              <th>Destinatário</th><th class="num">Valor (R$)</th><th>Protocolo</th><th>Chave de acesso</th>
+            </tr>
+          </thead>
+          <tbody id="lista-corpo"><tr><td colspan="9" class="mut">Nenhuma busca realizada.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// CONFIGURAÇÃO — só a chave PÚBLICA (anon / publishable) vai aqui.
+// NUNCA coloque a service_role key neste arquivo.
+// ─────────────────────────────────────────────────────────────────────
+var SUPABASE_URL = 'https://ufykdllofvncpmdjxkmx.supabase.co';
+var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jaO0Qwh7m4xlBUZOlGe3wQ_9nAnG1Kk';
+
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+var STATUS_LISTA = [
+  ['AUTORIZADA', 'Autorizada'], ['CANCELADA', 'Cancelada'], ['REJEITADA', 'Rejeitada'],
+  ['DENEGADA', 'Denegada'], ['ERRO', 'Erro'], ['CONTINGENCIA', 'Contingência'],
+  ['PENDENTE', 'Pendente'], ['ENVIADA', 'Enviada (aguardando)'], ['INUTILIZADA', 'Inutilizada']
+];
+var STATUS_PADRAO = ['AUTORIZADA', 'CANCELADA'];
+var COLUNAS_LISTA = 'id,restaurante_id,origem,modelo,serie,numero,ambiente,status,chave_acesso,' +
+  'destinatario_nome,destinatario_documento,valor_total,protocolo_autorizacao,data_emissao,' +
+  'data_autorizacao,protocolo_cancelamento,data_cancelamento,justificativa_cancelamento,motivo_status';
+var PAGINA = 1000; // limite padrão de linhas por requisição do Supabase
+
+var notasAtuais = [];
+var modoCadastro = false;
+
+function $(id) { return document.getElementById(id); }
+
+function mostrar(id, texto, tipo) {
+  var el = $(id);
+  el.textContent = texto;
+  el.className = 'msg ' + tipo;
+}
+function ocultar(id) { $(id).className = 'msg oculto'; }
+
+function brl(n) {
+  return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtLocal(ts) { // timestamp SEM fuso (horário local do restaurante)
+  if (!ts) return '';
+  var p = String(ts).replace('T', ' ').split(/[- :.]/);
+  return p[2] + '/' + p[1] + '/' + p[0] + ' ' + (p[3] || '00') + ':' + (p[4] || '00');
+}
+function fmtUtc(ts) { // timestamptz -> horário de Brasília
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+function isoData(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function somaUmDia(iso) {
+  var p = iso.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 1);
+  return isoData(d);
+}
+function nomeSeguro(s) { return String(s || '').replace(/[^A-Za-z0-9._-]+/g, '_'); }
+
+// ─── Login ────────────────────────────────────────────────────────────
+function alternarModo() {
+  modoCadastro = !modoCadastro;
+  $('login-titulo').textContent = modoCadastro ? 'Criar senha (primeiro acesso)' : 'Entrar';
+  $('btn-entrar').textContent = modoCadastro ? 'Criar acesso' : 'Entrar';
+  $('link-alternar').textContent = modoCadastro ? 'Já tenho senha' : 'Primeiro acesso? Criar senha';
+  $('login-senha').autocomplete = modoCadastro ? 'new-password' : 'current-password';
+  ocultar('login-msg');
+}
+
+async function entrarOuCadastrar() {
+  var email = $('login-email').value.trim().toLowerCase();
+  var senha = $('login-senha').value;
+  if (!email || !senha) { mostrar('login-msg', 'Informe e-mail e senha.', 'erro'); return; }
+  $('btn-entrar').disabled = true;
+  try {
+    if (modoCadastro) {
+      if (senha.length < 8) { mostrar('login-msg', 'Use uma senha com pelo menos 8 caracteres.', 'erro'); return; }
+      var r = await sb.auth.signUp({ email: email, password: senha, options: { emailRedirectTo: window.location.href } });
+      if (r.error) { mostrar('login-msg', r.error.message, 'erro'); return; }
+      if (r.data.session) { await abrirPainel(); return; }
+      mostrar('login-msg', 'Enviamos um e-mail de confirmação. Confirme e depois faça login.', 'ok');
+    } else {
+      var l = await sb.auth.signInWithPassword({ email: email, password: senha });
+      if (l.error) { mostrar('login-msg', 'E-mail ou senha inválidos (ou e-mail ainda não confirmado).', 'erro'); return; }
+      await abrirPainel();
+    }
+  } finally {
+    $('btn-entrar').disabled = false;
+  }
+}
+
+async function esqueciSenha() {
+  var email = $('login-email').value.trim().toLowerCase();
+  if (!email) { mostrar('login-msg', 'Digite seu e-mail acima primeiro.', 'aviso'); return; }
+  var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+  if (r.error) mostrar('login-msg', r.error.message, 'erro');
+  else mostrar('login-msg', 'Se o e-mail existir, você receberá o link para redefinir a senha.', 'ok');
+}
+
+async function sair() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ─── Painel ───────────────────────────────────────────────────────────
+async function abrirPainel() {
+  var s = await sb.auth.getSession();
+  if (!s.data.session) return;
+
+  $('topo-email').textContent = s.data.session.user.email;
+  $('topo-usuario').classList.remove('oculto');
+  $('tela-login').classList.add('oculto');
+  $('tela-painel').classList.remove('oculto');
+
+  // Transforma convites pendentes deste e-mail (confirmado) em vínculos.
+  await sb.rpc('portal_contador_aceitar_convites');
+
+  var r = await sb.rpc('portal_contador_listar_restaurantes');
+  var sel = $('f-restaurante');
+  sel.textContent = '';
+
+  if (r.error || !r.data || !r.data.length) {
+    var op = document.createElement('option');
+    op.value = '';
+    op.textContent = 'Nenhum restaurante vinculado';
+    sel.appendChild(op);
+    $('btn-buscar').disabled = true;
+    mostrar('painel-msg',
+      'Nenhum restaurante vinculado a este e-mail. Peça ao restaurante para cadastrar seu e-mail em GACFOOD > Contadores.',
+      'aviso');
+    return;
+  }
+  r.data.forEach(function (rest) {
+    var o = document.createElement('option');
+    o.value = rest.id;
+    o.textContent = rest.nome;
+    sel.appendChild(o);
+  });
+
+  var hoje = new Date();
+  $('f-inicio').value = isoData(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  $('f-fim').value = isoData(hoje);
+
+  var box = $('f-status');
+  box.textContent = '';
+  STATUS_LISTA.forEach(function (st) {
+    var lab = document.createElement('label');
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = st[0];
+    cb.checked = STATUS_PADRAO.indexOf(st[0]) >= 0;
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(st[1]));
+    box.appendChild(lab);
+  });
+}
+
+function filtrosAtuais() {
+  var status = Array.prototype.slice.call(document.querySelectorAll('#f-status input:checked')).map(function (c) { return c.value; });
+  return {
+    restaurante: $('f-restaurante').value,
+    inicio: $('f-inicio').value,
+    fim: $('f-fim').value,
+    ambiente: $('f-ambiente').value || null,
+    status: status
+  };
+}
+
+async function buscar() {
+  var f = filtrosAtuais();
+  if (!f.restaurante) return;
+  if (!f.inicio || !f.fim || f.inicio > f.fim) { mostrar('painel-msg', 'Período inválido.', 'erro'); return; }
+  if (!f.status.length) { mostrar('painel-msg', 'Marque ao menos uma situação.', 'erro'); return; }
+
+  ocultar('painel-msg');
+  $('btn-buscar').disabled = true;
+  $('btn-xlsx').disabled = true;
+  $('btn-zip').disabled = true;
+  mostrar('painel-msg', 'Buscando...', 'aviso');
+
+  try {
+    // 1) Somatório — calculado no banco (não depende de paginação)
+    var res = await sb.rpc('portal_contador_resumo', {
+      p_restaurante_id: f.restaurante, p_inicio: f.inicio, p_fim: f.fim,
+      p_ambiente: f.ambiente, p_status: f.status
+    });
+    if (res.error) throw new Error(res.error.message);
+    renderResumo(res.data || []);
+
+    // 2) Lista — paginada de 1000 em 1000 até acabar
+    var todas = [];
+    var de = 0;
+    while (true) {
+      var q = sb.from('portal_notas_fiscais').select(COLUNAS_LISTA)
+        .eq('restaurante_id', f.restaurante)
+        .gte('data_emissao', f.inicio + 'T00:00:00')
+        .lt('data_emissao', somaUmDia(f.fim) + 'T00:00:00')
+        .in('status', f.status)
+        .order('data_emissao', { ascending: true })
+        .order('id', { ascending: true })
+        .range(de, de + PAGINA - 1);
+      if (f.ambiente) q = q.eq('ambiente', f.ambiente);
+      var r = await q;
+      if (r.error) throw new Error(r.error.message);
+      todas = todas.concat(r.data);
+      if (r.data.length < PAGINA) break;
+      de += PAGINA;
+    }
+    notasAtuais = todas;
+    renderLista(todas);
+    ocultar('painel-msg');
+    $('btn-xlsx').disabled = !todas.length;
+    $('btn-zip').disabled = !todas.length;
+  } catch (e) {
+    mostrar('painel-msg', 'Erro na busca: ' + e.message, 'erro');
+  } finally {
+    $('btn-buscar').disabled = false;
+  }
+}
+
+function novaCelula(tr, texto, classe) {
+  var td = document.createElement('td');
+  td.textContent = texto == null ? '' : String(texto);
+  if (classe) td.className = classe;
+  tr.appendChild(td);
+  return td;
+}
+
+function renderResumo(linhas) {
+  var corpo = $('resumo-corpo');
+  corpo.textContent = '';
+  if (!linhas.length) {
+    var tr0 = document.createElement('tr');
+    var td0 = novaCelula(tr0, 'Nenhuma nota no período com estes filtros.', 'mut');
+    td0.colSpan = 3;
+    corpo.appendChild(tr0);
+    $('resumo-nota').textContent = '';
+    return;
+  }
+  var totQtd = 0, totVal = 0;
+  linhas.forEach(function (l) {
+    var tr = document.createElement('tr');
+    var td = document.createElement('td');
+    var b = document.createElement('span');
+    b.className = 'badge b-' + l.status;
+    b.textContent = l.status;
+    td.appendChild(b);
+    tr.appendChild(td);
+    novaCelula(tr, l.quantidade, 'num');
+    novaCelula(tr, brl(l.valor_total), 'num');
+    corpo.appendChild(tr);
+    totQtd += Number(l.quantidade);
+    totVal += Number(l.valor_total);
+  });
+  var trT = document.createElement('tr');
+  novaCelula(trT, 'Total dos status selecionados', 'destaque');
+  novaCelula(trT, totQtd, 'num destaque');
+  novaCelula(trT, brl(totVal), 'num destaque');
+  corpo.appendChild(trT);
+  $('resumo-nota').textContent =
+    'Valores por data de emissão. Notas canceladas aparecem em linha própria — confirme com o escritório se entram ou não no total a recolher.';
+}
+
+function renderLista(notas) {
+  var corpo = $('lista-corpo');
+  corpo.textContent = '';
+  $('lista-contagem').textContent = '(' + notas.length + ')';
+  if (!notas.length) {
+    var tr0 = document.createElement('tr');
+    var td0 = novaCelula(tr0, 'Nenhuma nota encontrada.', 'mut');
+    td0.colSpan = 9;
+    corpo.appendChild(tr0);
+    return;
+  }
+  var LIMITE_TELA = 2000;
+  notas.slice(0, LIMITE_TELA).forEach(function (n) {
+    var tr = document.createElement('tr');
+    novaCelula(tr, fmtLocal(n.data_emissao));
+    novaCelula(tr, n.numero);
+    novaCelula(tr, n.serie);
+    novaCelula(tr, n.modelo);
+    var td = document.createElement('td');
+    var b = document.createElement('span');
+    b.className = 'badge b-' + n.status;
+    b.textContent = n.status;
+    td.appendChild(b);
+    tr.appendChild(td);
+    novaCelula(tr, n.destinatario_nome || 'Consumidor');
+    novaCelula(tr, brl(n.valor_total), 'num');
+    novaCelula(tr, n.protocolo_autorizacao || '');
+    novaCelula(tr, n.chave_acesso || '');
+    corpo.appendChild(tr);
+  });
+  if (notas.length > LIMITE_TELA) {
+    var trM = document.createElement('tr');
+    var tdM = novaCelula(trM, 'Mostrando as primeiras ' + LIMITE_TELA + ' — a planilha e o ZIP levam todas.', 'mut');
+    tdM.colSpan = 9;
+    corpo.appendChild(trM);
+  }
+}
+
+// ─── Exportações ──────────────────────────────────────────────────────
+function exportarXlsx() {
+  if (!notasAtuais.length) return;
+  var f = filtrosAtuais();
+  var linhas = notasAtuais.map(function (n) {
+    return {
+      'Emissão': fmtLocal(n.data_emissao),
+      'Número': n.numero,
+      'Série': n.serie,
+      'Modelo': n.modelo,
+      'Ambiente': n.ambiente,
+      'Situação': n.status,
+      'Origem': n.origem,
+      'Destinatário': n.destinatario_nome || '',
+      'CPF/CNPJ destinatário': n.destinatario_documento || '',
+      'Valor (R$)': Number(n.valor_total),
+      'Protocolo autorização': n.protocolo_autorizacao || '',
+      'Data autorização': fmtUtc(n.data_autorizacao),
+      'Protocolo cancelamento': n.protocolo_cancelamento || '',
+      'Data cancelamento': fmtLocal(n.data_cancelamento),
+      'Justificativa cancelamento': n.justificativa_cancelamento || '',
+      'Motivo (SEFAZ)': n.motivo_status || '',
+      'Chave de acesso': n.chave_acesso || ''
+    };
+  });
+  var ws = XLSX.utils.json_to_sheet(linhas);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Notas');
+  XLSX.writeFile(wb, 'notas_' + f.inicio + '_a_' + f.fim + '.xlsx');
+}
+
+function baixarBlob(blob, nome) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+async function baixarXmls() {
+  if (!notasAtuais.length) return;
+  var f = filtrosAtuais();
+  $('btn-zip').disabled = true;
+  var zip = new JSZip();
+  var incluidos = 0, semXml = 0;
+  var ids = notasAtuais.map(function (n) { return n.id; });
+  var LOTE = 50; // XMLs são pesados: lotes menores
+
+  try {
+    for (var i = 0; i < ids.length; i += LOTE) {
+      mostrar('painel-msg', 'Preparando XMLs... ' + Math.min(i + LOTE, ids.length) + ' de ' + ids.length, 'aviso');
+      var r = await sb.from('portal_notas_fiscais')
+        .select('id,chave_acesso,serie,numero,xml_assinado,xml_retorno,xml_cancelamento,xml_retorno_cancelamento')
+        .in('id', ids.slice(i, i + LOTE));
+      if (r.error) throw new Error(r.error.message);
+
+      r.data.forEach(function (n) {
+        var base = nomeSeguro(n.chave_acesso || (n.serie + '-' + n.numero));
+        var tinhaAlgo = false;
+        if (n.xml_assinado)             { zip.file('NFe/' + base + '-nfe.xml', n.xml_assinado); tinhaAlgo = true; }
+        if (n.xml_retorno)              { zip.file('Retorno-SEFAZ/' + base + '-retorno.xml', n.xml_retorno); }
+        if (n.xml_cancelamento)         { zip.file('Cancelamento/' + base + '-evento-cancelamento.xml', n.xml_cancelamento); tinhaAlgo = true; }
+        if (n.xml_retorno_cancelamento) { zip.file('Cancelamento/' + base + '-retorno-cancelamento.xml', n.xml_retorno_cancelamento); }
+        if (tinhaAlgo) incluidos++; else semXml++;
+      });
+    }
+
+    if (!incluidos) { mostrar('painel-msg', 'Nenhuma das notas filtradas possui XML assinado (ex.: pendentes/contingência).', 'aviso'); return; }
+    var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    baixarBlob(blob, 'xmls_' + f.inicio + '_a_' + f.fim + '.zip');
+    mostrar('painel-msg',
+      incluidos + ' nota(s) no ZIP.' + (semXml ? ' ' + semXml + ' sem XML assinado (não incluídas).' : ''),
+      semXml ? 'aviso' : 'ok');
+  } catch (e) {
+    mostrar('painel-msg', 'Erro ao montar o ZIP: ' + e.message, 'erro');
+  } finally {
+    $('btn-zip').disabled = false;
+  }
+}
+
+// ─── Eventos ──────────────────────────────────────────────────────────
+$('btn-entrar').addEventListener('click', entrarOuCadastrar);
+$('login-senha').addEventListener('keydown', function (e) { if (e.key === 'Enter') entrarOuCadastrar(); });
+$('link-alternar').addEventListener('click', function (e) { e.preventDefault(); alternarModo(); });
+$('link-esqueci').addEventListener('click', function (e) { e.preventDefault(); esqueciSenha(); });
+$('btn-sair').addEventListener('click', sair);
+$('btn-buscar').addEventListener('click', buscar);
+$('btn-xlsx').addEventListener('click', exportarXlsx);
+$('btn-zip').addEventListener('click', baixarXmls);
+
+// Voltou do link "Esqueci a senha": pede a nova senha.
+sb.auth.onAuthStateChange(async function (evento) {
+  if (evento !== 'PASSWORD_RECOVERY') return;
+  var nova = prompt('Digite a nova senha (mínimo 8 caracteres):');
+  if (!nova || nova.length < 8) { alert('Senha não alterada (mínimo 8 caracteres).'); return; }
+  var r = await sb.auth.updateUser({ password: nova });
+  alert(r.error ? r.error.message : 'Senha alterada com sucesso.');
+});
+
+// Sessão já existente (recarregou a página / voltou do e-mail de confirmação)
+sb.auth.getSession().then(function (s) { if (s.data.session) abrirPainel(); });
+</script>
+</body>
+</html>
